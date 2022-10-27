@@ -25,9 +25,9 @@ import org.matsim.core.controler.Controler;
 import org.matsim.core.router.AnalysisMainModeIdentifier;
 import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.project.drtOperationStudy.analysis.DrtPerformanceQuantification;
-import org.matsim.project.drtSchoolTransportStudy.run.dummyTraffic.DvrpBenchmarkTravelTimeModuleFixedTT;
-import org.matsim.project.drtSchoolTransportStudy.run.rebalancing.RuralScenarioRebalancingTCModule;
+import org.matsim.project.utils.DvrpBenchmarkTravelTimeModuleFixedTT;
 import org.matsim.project.utils.LinearDrtStopDurationEstimator;
+import org.matsim.project.utils.RuralScenarioRebalancingTCModule;
 import picocli.CommandLine;
 
 import java.io.File;

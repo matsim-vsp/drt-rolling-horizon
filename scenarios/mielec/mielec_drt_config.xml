@@ -56,7 +56,7 @@
 	</module>
 
 	<module name="controler">
-		<param name="outputDirectory" value="/Users/luchengqi/Documents/MATSimScenarios/Mielec/2014-02/output/online/benchmark"/>
+		<param name="outputDirectory" value="/Users/luchengqi/Documents/GitHub/matsim-drt-rolling-horizon/scenarios/mielec/output/mielec/online"/>
 		<param name="overwriteFiles" value="deleteDirectoryIfExists"/>
 		<param name="firstIteration" value="0"/>
 		<param name="lastIteration" value="3"/>

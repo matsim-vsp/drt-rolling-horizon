@@ -24,7 +24,7 @@ import org.matsim.api.core.v01.population.Person;
 import org.matsim.contrib.drt.passenger.DrtRequest;
 import org.matsim.contrib.drt.run.DrtConfigGroup;
 import org.matsim.contrib.dvrp.fleet.DvrpVehicle;
-import org.matsim.project.drtSchoolTransportStudy.jsprit.MatrixBasedVrpCosts;
+import org.matsim.project.utils.MatrixBasedVrpCosts;
 
 import java.util.*;
 import java.util.stream.Collectors;

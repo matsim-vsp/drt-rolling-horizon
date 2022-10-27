@@ -28,7 +28,7 @@ import org.matsim.contrib.dvrp.fleet.DvrpVehicle;
 import org.matsim.contrib.dvrp.fleet.DvrpVehicleSpecification;
 import org.matsim.contrib.dvrp.fleet.FleetSpecification;
 import org.matsim.core.router.TripStructureUtils;
-import org.matsim.project.drtSchoolTransportStudy.jsprit.MatrixBasedVrpCosts;
+import org.matsim.project.utils.MatrixBasedVrpCosts;
 
 import java.util.*;
 import java.util.stream.Collectors;

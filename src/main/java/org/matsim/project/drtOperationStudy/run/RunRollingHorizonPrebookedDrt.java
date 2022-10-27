@@ -34,7 +34,7 @@ import org.matsim.core.router.util.TravelTime;
 import org.matsim.project.drtOperationStudy.analysis.DrtPerformanceQuantification;
 import org.matsim.project.drtOperationStudy.rollingHorizon.PDPTWSolverJsprit;
 import org.matsim.project.drtOperationStudy.rollingHorizon.RollingHorizonDrtOptimizer;
-import org.matsim.project.drtSchoolTransportStudy.run.dummyTraffic.DvrpBenchmarkTravelTimeModuleFixedTT;
+import org.matsim.project.utils.DvrpBenchmarkTravelTimeModuleFixedTT;
 import org.matsim.project.utils.LinearDrtStopDurationEstimator;
 import picocli.CommandLine;
 

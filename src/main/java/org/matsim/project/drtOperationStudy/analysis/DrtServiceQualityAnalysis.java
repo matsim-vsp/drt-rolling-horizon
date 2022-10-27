@@ -20,7 +20,7 @@ import org.matsim.core.router.speedy.SpeedyALTFactory;
 import org.matsim.core.router.util.LeastCostPathCalculator;
 import org.matsim.core.router.util.TravelDisutility;
 import org.matsim.core.router.util.TravelTime;
-import org.matsim.project.drtSchoolTransportStudy.analysis.TrafficAnalysis;
+import org.matsim.project.utils.TrafficAnalysis;
 import picocli.CommandLine;
 
 import java.io.FileWriter;
