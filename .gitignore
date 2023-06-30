@@ -8,11 +8,7 @@ scenarios
 
 
 /.ideas
-.idea/compiler.xml
-.idea/jarRepositories.xml
 .idea/misc.xml
-.idea/runConfigurations.xml
-.idea/vcs.xml
 .idea/uiDesigner.xml
 /.idea/libraries
 /.idea/modules.xml
@@ -40,3 +36,4 @@ scenarios
 *.zip
 *.tar.gz
 *.rar
+*.iml
