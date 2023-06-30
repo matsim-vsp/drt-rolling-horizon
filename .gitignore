@@ -5,3 +5,38 @@
 .idea/runConfigurations.xml
 .idea/vcs.xml
 scenarios
+
+
+/.ideas
+.idea/compiler.xml
+.idea/jarRepositories.xml
+.idea/misc.xml
+.idea/runConfigurations.xml
+.idea/vcs.xml
+.idea/uiDesigner.xml
+/.idea/libraries
+/.idea/modules.xml
+/project-space.iml
+/.idea/inspectionProfiles/Project_Default.xml
+/target
+
+# Compiled class file
+*.class
+
+# Log file
+*.log
+
+# BlueJ files
+*.ctxt
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# Package Files #
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar

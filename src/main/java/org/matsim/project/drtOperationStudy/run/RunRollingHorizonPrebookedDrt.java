@@ -54,13 +54,13 @@ public class RunRollingHorizonPrebookedDrt implements MATSimAppCommand {
     @CommandLine.Option(names = "--output", description = "path to output directory", required = true)
     private String outputDirectory;
 
-    @CommandLine.Option(names = "--iterations", description = "path to output directory", defaultValue = "1000")
+    @CommandLine.Option(names = "--iterations", description = "number of jsprit iterations", defaultValue = "1000")
     private int maxIterations;
 
-    @CommandLine.Option(names = "--horizon", description = "path to output directory", defaultValue = "1800")
+    @CommandLine.Option(names = "--horizon", description = "horizon length", defaultValue = "1800")
     private double horizon;
 
-    @CommandLine.Option(names = "--interval", description = "path to output directory", defaultValue = "1800")
+    @CommandLine.Option(names = "--interval", description = "re-planning interval", defaultValue = "1800")
     private double interval;
 
     public static void main(String[] args) {

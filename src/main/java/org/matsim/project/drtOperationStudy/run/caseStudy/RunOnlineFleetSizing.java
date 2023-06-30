@@ -36,7 +36,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class RunOnlineStrategy implements MATSimAppCommand {
+public class RunOnlineFleetSizing implements MATSimAppCommand {
     @CommandLine.Option(names = "--config", description = "path to config file", required = true)
     private Path configPath;
 
@@ -56,7 +56,7 @@ public class RunOnlineStrategy implements MATSimAppCommand {
     private long seed;
 
     public static void main(String[] args) {
-        new RunOnlineStrategy().execute(args);
+        new RunOnlineFleetSizing().execute(args);
     }
 
     @Override
@@ -86,7 +86,8 @@ public class RunOnlineStrategy implements MATSimAppCommand {
             Config config = ConfigUtils.loadConfig(temporaryConfig, new MultiModeDrtConfigGroup(), new DvrpConfigGroup());
             MultiModeDrtConfigGroup multiModeDrtConfig = MultiModeDrtConfigGroup.get(config);
             DrtConfigs.adjustMultiModeDrtConfig(multiModeDrtConfig, config.planCalcScore(), config.plansCalcRoute());
-            DrtConfigGroup drtConfigGroup = multiModeDrtConfig.getModalElements().iterator().next(); // By default, the first drt config group is the one we are using
+            // Assume we only have one DRT operator
+            DrtConfigGroup drtConfigGroup = multiModeDrtConfig.getModalElements().iterator().next();
             drtConfigGroup.vehiclesFile = "drt-vehicles/" + fleetSize + "-8_seater-drt-vehicles.xml";
             config.controler().setOutputDirectory(outputDirectory);
             config.global().setRandomSeed(seed);
