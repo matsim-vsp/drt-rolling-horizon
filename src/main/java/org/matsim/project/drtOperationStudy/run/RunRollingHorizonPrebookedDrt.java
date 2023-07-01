@@ -34,6 +34,8 @@ import org.matsim.core.router.util.TravelTime;
 import org.matsim.project.drtOperationStudy.analysis.DrtPerformanceQuantification;
 import org.matsim.project.drtOperationStudy.rollingHorizon.PDPTWSolverJsprit;
 import org.matsim.project.drtOperationStudy.rollingHorizon.RollingHorizonDrtOptimizer;
+import org.matsim.project.drtOperationStudy.run.modules.LinearStopDurationModule;
+import org.matsim.project.drtOperationStudy.run.modules.RollingHorizonModule;
 import org.matsim.project.utils.DvrpBenchmarkTravelTimeModuleFixedTT;
 import org.matsim.project.utils.LinearDrtStopDurationEstimator;
 import picocli.CommandLine;
@@ -83,34 +85,9 @@ public class RunRollingHorizonPrebookedDrt implements MATSimAppCommand {
         controler.addOverridingModule(new DvrpModule(new DvrpBenchmarkTravelTimeModuleFixedTT(0)));
         // Add rolling horizon module with PDPTWSolverJsprit
         var options = new PDPTWSolverJsprit.Options(maxIterations, true, new Random(4711));
-        controler.addOverridingQSimModule(new AbstractDvrpModeQSimModule(drtConfigGroup.getMode()) {
-            @Override
-            protected void configureQSim() {
-                addModalComponent(DrtOptimizer.class, modalProvider(getter -> new RollingHorizonDrtOptimizer(drtConfigGroup,
-                        getter.getModal(Network.class), getter.getModal(TravelTime.class),
-                        getter.getModal(TravelDisutilityFactory.class).createTravelDisutility(getter.getModal(TravelTime.class)),
-                        getter.get(MobsimTimer.class), getter.getModal(DrtTaskFactory.class), getter.get(EventsManager.class), getter.getModal(Fleet.class),
-                        getter.getModal(ScheduleTimingUpdater.class), getter.getModal(QSimScopeForkJoinPoolHolder.class).getPool(),
-                        getter.getModal(VehicleEntry.EntryFactory.class),
-                        getter.get(PDPTWSolverJsprit.class), getter.get(Population.class), horizon, interval)));
-
-                bind(PDPTWSolverJsprit.class).toProvider(modalProvider(
-                        getter -> new PDPTWSolverJsprit(drtConfigGroup, getter.get(Network.class), options)));
-
-                addModalComponent(QSimScopeForkJoinPoolHolder.class,
-                        () -> new QSimScopeForkJoinPoolHolder(drtConfigGroup.numberOfThreads));
-                bindModal(VehicleEntry.EntryFactory.class).toInstance(new VehicleDataEntryFactoryImpl(drtConfigGroup));
-            }
-        });
-
+        controler.addOverridingQSimModule(new RollingHorizonModule(drtConfigGroup, horizon, interval, options));
         // Add linear stop duration module
-        controler.addOverridingModule(new AbstractDvrpModeModule(drtConfigGroup.getMode()) {
-            @Override
-            public void install() {
-                bindModal(StopDurationEstimator.class).toInstance((vehicle, dropoffRequests, pickupRequests) -> drtConfigGroup.stopDuration * (dropoffRequests.size() + pickupRequests.size()));
-                bindModal(IncrementalStopDurationEstimator.class).toInstance(new LinearDrtStopDurationEstimator(drtConfigGroup.stopDuration));
-            }
-        });
+        controler.addOverridingModule(new LinearStopDurationModule(drtConfigGroup));
 
         controler.run();
 

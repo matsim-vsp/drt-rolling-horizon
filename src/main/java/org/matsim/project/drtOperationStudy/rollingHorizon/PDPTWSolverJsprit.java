@@ -228,7 +228,8 @@ public class PDPTWSolverJsprit {
         var solutions = algorithm.searchSolutions();
         var bestSolution = Solutions.bestOf(solutions);
 
-        SolutionPrinter.print(problem, bestSolution, SolutionPrinter.Print.VERBOSE); // TODO delete
+//        SolutionPrinter.print(problem, bestSolution, SolutionPrinter.Print.VERBOSE);
+// TODO delete
 
         // Collect results
         List<Id<Person>> personsOnboard = new ArrayList<>();

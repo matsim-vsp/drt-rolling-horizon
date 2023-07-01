@@ -5,30 +5,23 @@ import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.io.FileUtils;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.application.MATSimAppCommand;
-import org.matsim.application.analysis.DefaultAnalysisMainModeIdentifier;
-import org.matsim.contrib.drt.optimizer.insertion.IncrementalStopDurationEstimator;
+import org.matsim.contrib.drt.extension.preplanned.run.PreplannedDrtControlerCreator;
 import org.matsim.contrib.drt.routing.DrtRoute;
 import org.matsim.contrib.drt.routing.DrtRouteFactory;
 import org.matsim.contrib.drt.run.DrtConfigGroup;
 import org.matsim.contrib.drt.run.DrtConfigs;
 import org.matsim.contrib.drt.run.MultiModeDrtConfigGroup;
-import org.matsim.contrib.drt.run.MultiModeDrtModule;
-import org.matsim.contrib.drt.schedule.StopDurationEstimator;
-import org.matsim.contrib.dvrp.run.AbstractDvrpModeModule;
 import org.matsim.contrib.dvrp.run.DvrpConfigGroup;
 import org.matsim.contrib.dvrp.run.DvrpModule;
-import org.matsim.contrib.dvrp.run.DvrpQSimComponents;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
-import org.matsim.core.controler.AbstractModule;
 import org.matsim.core.controler.Controler;
-import org.matsim.core.router.AnalysisMainModeIdentifier;
 import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.project.drtOperationStudy.analysis.DrtPerformanceQuantification;
+import org.matsim.project.drtOperationStudy.rollingHorizon.PDPTWSolverJsprit;
 import org.matsim.project.drtOperationStudy.run.modules.LinearStopDurationModule;
+import org.matsim.project.drtOperationStudy.run.modules.RollingHorizonModule;
 import org.matsim.project.utils.DvrpBenchmarkTravelTimeModuleFixedTT;
-import org.matsim.project.utils.LinearDrtStopDurationEstimator;
-import org.matsim.project.utils.RuralScenarioRebalancingTCModule;
 import picocli.CommandLine;
 
 import java.io.File;
@@ -36,8 +29,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Random;
 
-public class RunOnlineFleetSizing implements MATSimAppCommand {
+public class RunPrebookingFleetSizing implements MATSimAppCommand {
     @CommandLine.Option(names = "--config", description = "path to config file", required = true)
     private Path configPath;
 
@@ -50,14 +44,26 @@ public class RunOnlineFleetSizing implements MATSimAppCommand {
     @CommandLine.Option(names = "--steps", description = "maximum number of runs", defaultValue = "1")
     private int steps;
 
-    @CommandLine.Option(names = "--step-size", description = "number of vehicles increased for each step", defaultValue = "5")
+    @CommandLine.Option(names = "--step-size", description = "number of vehicles reduced for each step", defaultValue = "5")
     private int stepSize;
 
     @CommandLine.Option(names = "--seed", description = "number of vehicles reduced for each step", defaultValue = "4711")
     private long seed;
 
+    @CommandLine.Option(names = "--multi-threading", description = "enable multi-threading option in jsprit", defaultValue = "false")
+    private boolean multiThreading;
+
+    @CommandLine.Option(names = "--iterations", description = "number of jsprit iterations", defaultValue = "2000")
+    private int iterations;
+
+    @CommandLine.Option(names = "--horizon", description = "horizon length", defaultValue = "1800")
+    private double horizon;
+
+    @CommandLine.Option(names = "--interval", description = "re-planning interval", defaultValue = "1200")
+    private int interval;
+
     public static void main(String[] args) {
-        new RunOnlineFleetSizing().execute(args);
+        new RunPrebookingFleetSizing().execute(args);
     }
 
     @Override
@@ -81,8 +87,8 @@ public class RunOnlineFleetSizing implements MATSimAppCommand {
         tsvWriter.printRecord("Fleet_size", "Rejections", "Total_driving_time");
         tsvWriter.close();
 
-        int maxFleetSize = fleetSize + stepSize * (steps - 1);
-        while (fleetSize <= maxFleetSize) {
+        int minFleetSize = fleetSize - stepSize * (steps - 1);
+        while (fleetSize >= minFleetSize) {
             String outputDirectory = output + "/fleet-size-" + fleetSize;
             Config config = ConfigUtils.loadConfig(temporaryConfig, new MultiModeDrtConfigGroup(), new DvrpConfigGroup());
             MultiModeDrtConfigGroup multiModeDrtConfig = MultiModeDrtConfigGroup.get(config);
@@ -96,26 +102,16 @@ public class RunOnlineFleetSizing implements MATSimAppCommand {
             Scenario scenario = ScenarioUtils.loadScenario(config);
             scenario.getPopulation().getFactory().getRouteFactories().setRouteFactory(DrtRoute.class, new DrtRouteFactory());
 
-            Controler controler = new Controler(scenario);
-
+            Controler controler = PreplannedDrtControlerCreator.createControler(config, false);
             controler.addOverridingModule(new DvrpModule(new DvrpBenchmarkTravelTimeModuleFixedTT(0)));
-            controler.addOverridingModule(new MultiModeDrtModule());
-            controler.configureQSimComponents(DvrpQSimComponents.activateAllModes(multiModeDrtConfig));
-            controler.addOverridingModule(new AbstractModule() {
-                @Override
-                public void install() {
-                    bind(AnalysisMainModeIdentifier.class).to(DefaultAnalysisMainModeIdentifier.class);
-                }
-            });
-
-            for (DrtConfigGroup drtCfg : multiModeDrtConfig.getModalElements()) {
-                // Use the rebalancing strategy for this rural area scenario
-//                controler.addOverridingQSimModule(new RuralScenarioRebalancingTCModule(drtCfg, 300));
-                // Use linear incremental stop duration
-                controler.addOverridingModule(new LinearStopDurationModule(drtConfigGroup));
-            }
+            // Add rolling horizon module with PDPTWSolverJsprit
+            var options = new PDPTWSolverJsprit.Options(iterations, multiThreading, new Random(seed));
+            controler.addOverridingQSimModule(new RollingHorizonModule(drtConfigGroup, horizon, interval, options));
+            // Add linear stop duration module
+            controler.addOverridingModule(new LinearStopDurationModule(drtConfigGroup));
 
             controler.run();
+
             DrtPerformanceQuantification performanceQuantification = new DrtPerformanceQuantification();
             performanceQuantification.analyze(Path.of(outputDirectory), 0, "not_applicable");
             double totalDrivingTime = performanceQuantification.getTotalDrivingTime();
@@ -125,11 +121,11 @@ public class RunOnlineFleetSizing implements MATSimAppCommand {
             resultWriter.printRecord(Integer.toString(fleetSize), Integer.toString(rejections), Double.toString(totalDrivingTime));
             resultWriter.close();
 
-            if (rejections == 0) {
+            if (rejections > 0) {
                 break;
             }
 
-            fleetSize += stepSize;
+            fleetSize -= stepSize;
         }
 
         // Delete the temporary config file for the current run
