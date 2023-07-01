@@ -95,7 +95,7 @@ public class PDPTWSolverJsprit {
                 }
             }
         }
-        var vrpCosts = MatrixBasedVrpCosts.calculateVrpCosts(network, locationByLinkId);  // TODO: @Michal we may need to update the TravelTime
+        var vrpCosts = MatrixBasedVrpCosts.calculateVrpCosts(network, locationByLinkId);
         vrpBuilder.setRoutingCost(vrpCosts);
 
         // 2.1 Passengers already assigned
@@ -227,9 +227,6 @@ public class PDPTWSolverJsprit {
         algorithm.setMaxIterations(options.maxIterations);
         var solutions = algorithm.searchSolutions();
         var bestSolution = Solutions.bestOf(solutions);
-
-//        SolutionPrinter.print(problem, bestSolution, SolutionPrinter.Print.VERBOSE);
-// TODO delete
 
         // Collect results
         List<Id<Person>> personsOnboard = new ArrayList<>();
