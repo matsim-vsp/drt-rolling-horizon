@@ -3,6 +3,7 @@ package org.matsim.project.drtOperationStudy.run.caseStudy;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.io.FileUtils;
+import org.matsim.project.drtOperationStudy.analysis.FleetSizingProblemAnalysis;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -28,7 +29,7 @@ public class CaseStudy {
         }
 
         CSVPrinter tsvWriter = new CSVPrinter(new FileWriter(output + "/result-summary.tsv", true), CSVFormat.TDF);
-        tsvWriter.printRecord("Fleet_size", "Rejections", "Total_driving_time");
+        tsvWriter.printRecord(FleetSizingProblemAnalysis.getTitleRow());
         tsvWriter.close();
         return temporaryConfig;
     }
