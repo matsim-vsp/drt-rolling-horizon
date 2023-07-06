@@ -2,17 +2,13 @@ package org.matsim.project.drtOperationStudy.analysis;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
-import org.matsim.api.core.v01.events.VehicleEntersTrafficEvent;
-import org.matsim.api.core.v01.events.VehicleLeavesTrafficEvent;
-import org.matsim.api.core.v01.events.handler.VehicleEntersTrafficEventHandler;
-import org.matsim.api.core.v01.events.handler.VehicleLeavesTrafficEventHandler;
 import org.matsim.contrib.drt.extension.preplanned.optimizer.WaitForStopTask;
 import org.matsim.contrib.drt.util.DrtEventsReaders;
-import org.matsim.contrib.dvrp.passenger.PassengerRequestRejectedEvent;
-import org.matsim.contrib.dvrp.passenger.PassengerRequestRejectedEventHandler;
 import org.matsim.core.api.experimental.events.EventsManager;
 import org.matsim.core.events.EventsUtils;
 import org.matsim.core.events.MatsimEventsReader;
+import org.matsim.project.drtOperationStudy.analysis.eventHandlers.RejectionStatistics;
+import org.matsim.project.drtOperationStudy.analysis.eventHandlers.VehicleDrivingTimeStatistics;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -179,53 +175,6 @@ public class DrtPerformanceQuantification {
         drtPerformanceQuantification.analyze(eventPath);
         System.out.println("Total driving time is " + drtPerformanceQuantification.getTotalDrivingTime() + " seconds");
         System.out.println("There are " + drtPerformanceQuantification.getRejections() + " rejected requests");
-    }
-
-    /**
-     * Read total fleet driving time from the event file
-     */
-    static class VehicleDrivingTimeStatistics implements VehicleEntersTrafficEventHandler,
-            VehicleLeavesTrafficEventHandler {
-        private double totalDrivingTime;
-
-        @Override
-        public void reset(int iteration) {
-            totalDrivingTime = 0;
-        }
-
-        @Override
-        public void handleEvent(VehicleEntersTrafficEvent vehicleEntersTrafficEvent) {
-            double enterTime = vehicleEntersTrafficEvent.getTime();
-            totalDrivingTime -= enterTime;
-        }
-
-        @Override
-        public void handleEvent(VehicleLeavesTrafficEvent vehicleLeavesTrafficEvent) {
-            double leavingTime = vehicleLeavesTrafficEvent.getTime();
-            totalDrivingTime += leavingTime;
-        }
-
-        public double getTotalDrivingTime() {
-            return totalDrivingTime;
-        }
-    }
-
-    static class RejectionStatistics implements PassengerRequestRejectedEventHandler {
-        private int rejectedRequests = 0;
-
-        @Override
-        public void handleEvent(PassengerRequestRejectedEvent passengerRequestRejectedEvent) {
-            rejectedRequests++;
-        }
-
-        @Override
-        public void reset(int iteration) {
-            rejectedRequests = 0;
-        }
-
-        public int getRejectedRequests() {
-            return rejectedRequests;
-        }
     }
 
 
