@@ -69,6 +69,9 @@ public class RunPrebookingFleetSizing implements MATSimAppCommand {
     @CommandLine.Option(names = "--plans", description = "input plans", defaultValue = "")
     private String inputPlans;
 
+    @CommandLine.Option(names = "--network", description = "input network", defaultValue = "")
+    private String inputNetwork;
+
     public static void main(String[] args) {
         new RunPrebookingFleetSizing().execute(args);
     }
@@ -120,6 +123,9 @@ public class RunPrebookingFleetSizing implements MATSimAppCommand {
         config.global().setRandomSeed(seed);
         if (!inputPlans.equals("")) {
             config.plans().setInputFile(inputPlans);
+        }
+        if (!inputNetwork.equals("")) {
+            config.network().setInputFile(inputNetwork);
         }
 
         Scenario scenario = ScenarioUtils.loadScenario(config);

@@ -1,8 +1,5 @@
 package org.matsim.project.drtOperationStudy.run.caseStudy;
 
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
-import org.apache.commons.io.FileUtils;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.application.MATSimAppCommand;
 import org.matsim.application.analysis.DefaultAnalysisMainModeIdentifier;
@@ -26,9 +23,6 @@ import org.matsim.project.drtOperationStudy.run.modules.LinearStopDurationModule
 import org.matsim.project.utils.DvrpBenchmarkTravelTimeModuleFixedTT;
 import picocli.CommandLine;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -53,6 +47,9 @@ public class RunOnlineFleetSizing implements MATSimAppCommand {
 
     @CommandLine.Option(names = "--plans", description = "input plans", defaultValue = "")
     private String inputPlans;
+
+    @CommandLine.Option(names = "--network", description = "input network", defaultValue = "")
+    private String inputNetwork;
 
     public static void main(String[] args) {
         new RunOnlineFleetSizing().execute(args);
@@ -104,6 +101,9 @@ public class RunOnlineFleetSizing implements MATSimAppCommand {
         config.controler().setOutputDirectory(outputDirectory);
         if (!inputPlans.equals("")) {
             config.plans().setInputFile(inputPlans);
+        }
+        if (!inputNetwork.equals("")) {
+            config.network().setInputFile(inputNetwork);
         }
 
         Scenario scenario = ScenarioUtils.loadScenario(config);
