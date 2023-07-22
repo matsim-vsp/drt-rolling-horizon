@@ -51,6 +51,9 @@ public class RunPrebookingFleetSizing implements MATSimAppCommand {
     @CommandLine.Option(names = "--step-size-2", description = "number of vehicles increased for each step", defaultValue = "1")
     private int stepSizeStageTwo;
 
+    @CommandLine.Option(names = "--seats", description = "fleet size", defaultValue = "8")
+    private int seats;
+
     @CommandLine.Option(names = "--seed", description = "number of vehicles reduced for each step", defaultValue = "4711")
     private long seed;
 
@@ -118,7 +121,7 @@ public class RunPrebookingFleetSizing implements MATSimAppCommand {
         DrtConfigs.adjustMultiModeDrtConfig(multiModeDrtConfig, config.planCalcScore(), config.plansCalcRoute());
         // Assume we only have one DRT operator
         DrtConfigGroup drtConfigGroup = multiModeDrtConfig.getModalElements().iterator().next();
-        drtConfigGroup.vehiclesFile = "drt-vehicles/" + fleetSize + "-8_seater-drt-vehicles.xml";
+        drtConfigGroup.vehiclesFile = "drt-vehicles/" + fleetSize + "-" + seats + "_seater-drt-vehicles.xml";
         config.controler().setOutputDirectory(outputDirectory);
         config.global().setRandomSeed(seed);
         if (!inputPlans.equals("")) {
