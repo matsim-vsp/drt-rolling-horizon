@@ -62,10 +62,12 @@ public class RollingHorizonDrtOptimizer implements DrtOptimizer {
 
     private final Map<Id<Person>, DrtRequest> openRequests = new HashMap<>();
 
-    private final PDPTWSolverJsprit solver; // TODO make an interface for this
+    private final Set<Id<Person>> requestsToBeRejected = new HashSet<>();
+
+    private final PDPTWSolverJsprit solver;
 
     private final double horizon;
-    private final double interval; // Must be smaller than or equal to the horizon
+    private final double interval;
     private double serviceStartTime = Double.MAX_VALUE;
     private double serviceEndTime = 0;
 
@@ -140,11 +142,12 @@ public class RollingHorizonDrtOptimizer implements DrtOptimizer {
         var vehicleId = preplannedSchedules.preplannedRequestToVehicle.get(preplannedRequest.key);
 
         if (vehicleId == null) {
-            Preconditions.checkState(preplannedSchedules.unassignedRequests.containsKey(preplannedRequest.key),
+            Preconditions.checkState(requestsToBeRejected.contains(preplannedRequest.key.passengerId),
                     "Pre-planned request (%s) not assigned to any vehicle and not marked as unassigned.",
                     preplannedRequest);
             eventsManager.processEvent(new PassengerRequestRejectedEvent(timer.getTimeOfDay(), mode, request.getId(),
                     drtRequest.getPassengerId(), "Marked as unassigned"));
+            requestsToBeRejected.remove(preplannedRequest.key.passengerId);
             return;
         }
 
@@ -213,7 +216,7 @@ public class RollingHorizonDrtOptimizer implements DrtOptimizer {
     @Override
     public void notifyMobsimBeforeSimStep(MobsimBeforeSimStepEvent mobsimBeforeSimStepEvent) {
         double now = mobsimBeforeSimStepEvent.getSimulationTime();
-        // TODO at time = 0, vehicle does not have any task, therefore, we can only start at t = 1
+        // At time = 0, vehicle does not have any task, therefore, we can only start at t = 1
         if (now % interval == 1 && now >= serviceStartTime && now < serviceEndTime) {
             for (DvrpVehicle v : fleet.getVehicles().values()) {
                 scheduleTimingUpdater.updateTimings(v);
@@ -272,6 +275,7 @@ public class RollingHorizonDrtOptimizer implements DrtOptimizer {
             log.info("Calculating the plan for t =" + now + " to t = " + endTime);
             log.info("There are " + newRequests.size() + " new request within this horizon");
             preplannedSchedules = solver.calculate(preplannedSchedules, realTimeVehicleInfoMap, newRequests);
+            preplannedSchedules.unassignedRequests.keySet().forEach(key -> requestsToBeRejected.add(key.passengerId));
 
             // Update vehicles schedules
             for (OnlineVehicleInfo onlineVehicleInfo : realTimeVehicleInfoMap.values()) {
@@ -344,7 +348,6 @@ public class RollingHorizonDrtOptimizer implements DrtOptimizer {
     }
 
     public record PreplannedRequestKey(Id<Person> passengerId, Id<Link> fromLinkId, Id<Link> toLinkId) {
-        // TODO (long-term) consider using request ID?
     }
 
     public record PreplannedStop(PreplannedRequest preplannedRequest, boolean pickup) {

@@ -3,6 +3,14 @@ package org.matsim.project.drtOperationStudy.analysis;
 import com.google.common.base.Preconditions;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.lang.mutable.MutableInt;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.geotools.feature.simple.SimpleFeatureBuilder;
+import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.prep.PreparedGeometry;
 import org.matsim.api.core.v01.Coord;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.TransportMode;
@@ -13,6 +21,14 @@ import org.matsim.api.core.v01.population.Person;
 import org.matsim.api.core.v01.population.Population;
 import org.matsim.application.MATSimAppCommand;
 import org.matsim.application.analysis.DefaultAnalysisMainModeIdentifier;
+import org.matsim.application.options.CrsOptions;
+import org.matsim.application.options.ShpOptions;
+import org.matsim.contrib.drt.analysis.zonal.DrtZonalSystem;
+import org.matsim.contrib.drt.analysis.zonal.DrtZone;
+import org.matsim.contrib.dvrp.path.VrpPath;
+import org.matsim.contrib.dvrp.path.VrpPathWithTravelData;
+import org.matsim.contrib.dvrp.path.VrpPaths;
+import org.matsim.contrib.dvrp.router.TimeAsTravelDisutility;
 import org.matsim.contrib.dvrp.trafficmonitoring.QSimFreeSpeedTravelTime;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
@@ -26,25 +42,37 @@ import org.matsim.core.router.util.LeastCostPathCalculator;
 import org.matsim.core.router.util.TravelTime;
 import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.core.utils.geometry.CoordUtils;
+import org.matsim.core.utils.geometry.geotools.MGC;
+import org.matsim.core.utils.gis.ShapeFileWriter;
+import org.opengis.feature.simple.SimpleFeature;
 import picocli.CommandLine;
 
 import java.io.FileWriter;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+
+import static org.matsim.contrib.drt.analysis.zonal.DrtGridUtils.createGridFromNetwork;
+import static org.matsim.contrib.drt.analysis.zonal.DrtGridUtils.createGridFromNetworkWithinServiceArea;
+import static org.matsim.contrib.drt.analysis.zonal.DrtZonalSystem.createFromPreparedGeometries;
+import static org.matsim.utils.gis.shp2matsim.ShpGeometryUtils.loadPreparedGeometries;
 
 public class DrtRequestsPreAnalysis implements MATSimAppCommand {
     @CommandLine.Option(names = "--config", description = "input DRT plans", required = true)
     private String configPathString;
-
-//    @CommandLine.Option(names = "--plans", description = "input DRT plans", required = true)
-//    private String inputDrtPlansPathString;
-//
-//    @CommandLine.Option(names = "--network", description = "input network", required = true)
-//    private String networkPathString;
-
     @CommandLine.Option(names = "--output", description = "path to matsim output directory", required = true)
     private String outputPath;
+    @CommandLine.Option(names = "--cell-size", description = "cell size for the analysis", defaultValue = "1000")
+    private double cellSize;
+
+    @CommandLine.Mixin
+    private ShpOptions shp = new ShpOptions();
+    @CommandLine.Mixin
+    private CrsOptions crs = new CrsOptions();
+
+    private static final Logger log = LogManager.getLogger(DrtRequestsPreAnalysis.class);
 
     public static void main(String[] args) {
         new DrtRequestsPreAnalysis().execute(args);
@@ -58,10 +86,9 @@ public class DrtRequestsPreAnalysis implements MATSimAppCommand {
         Network network = scenario.getNetwork();
         MainModeIdentifier mainModeIdentifier = new DefaultAnalysisMainModeIdentifier();
 
-        SpeedyALTFactory routerFactory = new SpeedyALTFactory();
         TravelTime travelTime = new QSimFreeSpeedTravelTime(1);
-        LeastCostPathCalculator router = routerFactory
-                .createPathCalculator(network, new OnlyTimeDependentTravelDisutility(travelTime), travelTime);
+        LeastCostPathCalculator router = new SpeedyALTFactory()
+                .createPathCalculator(network, new TimeAsTravelDisutility(travelTime), travelTime);
 
         double maxX = Double.MIN_VALUE;
         double maxY = Double.MIN_VALUE;
@@ -73,6 +100,20 @@ public class DrtRequestsPreAnalysis implements MATSimAppCommand {
         double sumNetworkDistance = 0;
         double sumDirectTravelTime = 0;
 
+
+        // Create Zonal system from Grid
+        Map<String, PreparedGeometry> grid;
+        if (shp.isDefined()) {
+            URL url = shp.getShapeFile().toUri().toURL();
+            List<PreparedGeometry> preparedGeometries = loadPreparedGeometries(url);
+            grid = createGridFromNetworkWithinServiceArea(network, cellSize, preparedGeometries);
+        } else {
+            grid = createGridFromNetwork(network, cellSize);
+        }
+        DrtZonalSystem zonalSystem = createFromPreparedGeometries(network, grid);
+        Map<String, MutableInt> departuresCount = new HashMap<>();
+        Map<String, MutableInt> arrivalsCount = new HashMap<>();
+
         for (Person person : plans.getPersons().values()) {
             List<TripStructureUtils.Trip> trips = TripStructureUtils.getTrips(person.getSelectedPlan());
             for (TripStructureUtils.Trip trip : trips) {
@@ -82,6 +123,14 @@ public class DrtRequestsPreAnalysis implements MATSimAppCommand {
 
                 Link fromLink = network.getLinks().get(originAct.getLinkId());
                 Link toLink = network.getLinks().get(destinationAct.getLinkId());
+
+                DrtZone fromZone = zonalSystem.getZoneForLinkId(fromLink.getId());
+                assert fromZone != null;
+                departuresCount.computeIfAbsent(fromZone.getId(), n -> new MutableInt()).increment();
+
+                DrtZone toZone = zonalSystem.getZoneForLinkId(toLink.getId());
+                assert toZone != null;
+                arrivalsCount.computeIfAbsent(toZone.getId(), n -> new MutableInt()).increment();
 
                 Coord fromCoord = originAct.getCoord();
                 Coord toCoord = destinationAct.getCoord();
@@ -112,9 +161,8 @@ public class DrtRequestsPreAnalysis implements MATSimAppCommand {
                 }
 
                 double euclideanDistance = CoordUtils.calcEuclideanDistance(fromCoord, toCoord);
-                LeastCostPathCalculator.Path path =
-                        router.calcLeastCostPath(fromLink.getToNode(), toLink.getFromNode(),
-                                originAct.getEndTime().orElse(0), null, null);
+                LeastCostPathCalculator.Path path = router.calcLeastCostPath(fromLink.getToNode(), toLink.getFromNode(),
+                        originAct.getEndTime().orElse(0), null, null);
                 path.links.add(toLink);
                 double networkDistance = path.links.stream().mapToDouble(Link::getLength).sum();
                 double directTravelTime = path.travelTime + 2;
@@ -129,6 +177,10 @@ public class DrtRequestsPreAnalysis implements MATSimAppCommand {
 
         double area = (maxX - minX) / 1000 * (maxY - minY) / 1000;
         double density = numOfRequests / area;
+
+        if (!Files.exists(Path.of(outputPath))) {
+            Files.createDirectories(Path.of(outputPath));
+        }
 
         DecimalFormat df = new DecimalFormat("0.0");
         CSVPrinter tsvWriter = new CSVPrinter(new FileWriter(outputPath + "/drt-requests-characteristics.tsv"), CSVFormat.TDF);
@@ -145,6 +197,65 @@ public class DrtRequestsPreAnalysis implements MATSimAppCommand {
 
         tsvWriter.close();
 
+        // Write shp file
+        String coordinateSystem;
+        if (shp.isDefined()) {
+            coordinateSystem = shp.getShapeCrs();
+        } else {
+            coordinateSystem = crs.getInputCRS();
+        }
+
+        Collection<SimpleFeature> features = convertGeometriesToSimpleFeatures(coordinateSystem, zonalSystem, departuresCount, arrivalsCount, numOfRequests);
+        Files.createDirectories(Path.of(outputPath + "/shp-analysis"));
+        ShapeFileWriter.writeGeometries(features, outputPath + "/shp-analysis/accessibility_analysis.shp");
+
         return 0;
+    }
+
+    private Collection<SimpleFeature> convertGeometriesToSimpleFeatures
+            (String coordinateSystem, DrtZonalSystem zonalSystem, Map<String, MutableInt> departuresCount, Map<String, MutableInt> arrivalsCount, double numRequests) {
+        SimpleFeatureTypeBuilder simpleFeatureBuilder = new SimpleFeatureTypeBuilder();
+        try {
+            simpleFeatureBuilder.setCRS(MGC.getCRS(coordinateSystem));
+        } catch (IllegalArgumentException e) {
+            log.warn("Coordinate reference system \""
+                    + coordinateSystem
+                    + "\" is unknown! ");
+        }
+
+        simpleFeatureBuilder.setName("drtZoneFeature");
+        // note: column names may not be longer than 10 characters. Otherwise, the name is cut after the 10th character and the value is NULL in QGis
+        simpleFeatureBuilder.add("the_geom", Polygon.class);
+        simpleFeatureBuilder.add("zoneIid", String.class);
+        simpleFeatureBuilder.add("centerX", Double.class);
+        simpleFeatureBuilder.add("centerY", Double.class);
+        simpleFeatureBuilder.add("departures", Double.class);
+        simpleFeatureBuilder.add("dep_pct", Double.class);
+        simpleFeatureBuilder.add("arrivals", Double.class);
+        simpleFeatureBuilder.add("arr_pct", Double.class);
+        SimpleFeatureBuilder builder = new SimpleFeatureBuilder(simpleFeatureBuilder.buildFeatureType());
+
+        Collection<SimpleFeature> features = new ArrayList<>();
+
+        for (DrtZone zone : zonalSystem.getZones().values()) {
+            Object[] featureAttributes = new Object[8];
+            Geometry geometry = zone.getPreparedGeometry() != null ? zone.getPreparedGeometry().getGeometry() : null;
+            featureAttributes[0] = geometry;
+            featureAttributes[1] = zone.getId();
+            featureAttributes[2] = zone.getCentroid().getX();
+            featureAttributes[3] = zone.getCentroid().getY();
+            featureAttributes[4] = departuresCount.getOrDefault(zone.getId(), new MutableInt()).intValue();
+            featureAttributes[5] = departuresCount.getOrDefault(zone.getId(), new MutableInt()).intValue() / numRequests * 100;
+            featureAttributes[6] = arrivalsCount.getOrDefault(zone.getId(), new MutableInt()).intValue();
+            featureAttributes[7] = arrivalsCount.getOrDefault(zone.getId(), new MutableInt()).intValue() / numRequests * 100;
+
+            try {
+                features.add(builder.buildFeature(zone.getId(), featureAttributes));
+            } catch (IllegalArgumentException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return features;
     }
 }
